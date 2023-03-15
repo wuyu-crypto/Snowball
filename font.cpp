@@ -32,17 +32,22 @@ static ID3D11ShaderResourceView* g_Texture[TEXTURE_MAX] = { NULL };
 //=============================================================================
 HRESULT InitFont(void) {
 
-	// フォントハンドルの生成
+	// フォントハンドルの設定
 	int fontSize = 64;
 	int fontWeight = 1000;
-	LOGFONT lf =
+	LOGFONTW lf =
 	{
-		fontSize, 0, 0, 0, fontWeight, 0, 0, 0,
-		SHIFTJIS_CHARSET, OUT_TT_ONLY_PRECIS, CLIP_DEFAULT_PRECIS,
-		PROOF_QUALITY, DEFAULT_PITCH | FF_MODERN,
-		"ＭＳ Ｐ明朝"											// (WCHAR)を加えるとエラーが出る
+		fontSize, 0, 0, 0, 
+		fontWeight, 0, 0, 0,
+		SHIFTJIS_CHARSET, 
+		OUT_TT_ONLY_PRECIS,
+		CLIP_DEFAULT_PRECIS,
+		PROOF_QUALITY,
+		DEFAULT_PITCH | FF_MODERN,
+		(WCHAR)"ＭＳ Ｐ明朝"
 	};
-	HFONT hFont = CreateFontIndirectA(&lf);
+	// フォントハンドルの生成
+	HFONT hFont = CreateFontIndirectW(&lf);
 
 	// 現在のウィンドウに適用
 	// デバイスにフォントを持たせないとGetGlyphOutline関数はエラーとなる
@@ -52,63 +57,64 @@ HRESULT InitFont(void) {
 	// フォントビットマップ取得
 	const wchar_t* c = L"S";
 	UINT code = (UINT)*c;
-	const int gradFlag = GGO_GRAY4_BITMAP;
-	// 階調の最大値
-	int grad = 0;
-	switch (gradFlag)
-	{
-	case GGO_GRAY2_BITMAP:
-		grad = 4;
-		break;
-	case GGO_GRAY4_BITMAP:
-		grad = 16;
-		break;
-	case GGO_GRAY8_BITMAP:
-		grad = 64;
-		break;
-	}
 
-	// ビットマップ生成
+	// 階調を設定
+	const int gradFlag = GGO_GRAY4_BITMAP;
+
+	// ビットマップを設定
 	TEXTMETRIC tm;
 	GetTextMetrics(hdc, &tm);
 	GLYPHMETRICS gm;	// ビットマップデータ
 	CONST MAT2 mat = { {0,1},{0,0},{0,0},{0,1} };
+
+	// フォントビットマップを取得
 	DWORD size = GetGlyphOutlineW(hdc, code, gradFlag, &gm, 0, NULL, &mat);
 	BYTE* pMono = new BYTE[size];
 	GetGlyphOutlineW(hdc, code, gradFlag, &gm, size, pMono, &mat);
 
-	// 空テクスチャ作成
-	D3D11_TEXTURE2D_DESC fontTextureDesc;
-	ZeroMemory(&fontTextureDesc, sizeof(fontTextureDesc));
-	fontTextureDesc.Width = gm.gmCellIncX;
-	fontTextureDesc.Height = gm.gmCellIncY;
-	fontTextureDesc.MipLevels = 1;
-	fontTextureDesc.ArraySize = 1;
-	fontTextureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	fontTextureDesc.SampleDesc.Count = 1;
-	fontTextureDesc.SampleDesc.Quality = 0;
-	fontTextureDesc.Usage = D3D11_USAGE_DYNAMIC;
-	fontTextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	fontTextureDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	fontTextureDesc.MiscFlags = 0;
-	ID3D11Texture2D* pFontTexture = 0;
-	
-	ID3D11Device* pDevice = GetDevice();
-	HRESULT hr = pDevice->CreateTexture2D(&fontTextureDesc, NULL, &pFontTexture);
+	// ハンドルとコンテキスト解放
+	SelectObject(hdc, oldFont);
+	ReleaseDC(NULL, hdc);
 
-	// デバイスコンテキスト
+	// フォントの幅と高さ
+	INT fontWidth = (gm.gmBlackBoxX + 3) / 4 * 4;
+	INT fontHeight = gm.gmBlackBoxY;
+
+	// レンダーターゲットの設定
+	D3D11_TEXTURE2D_DESC rtDesc;
+	ZeroMemory(&rtDesc, sizeof(rtDesc));
+	rtDesc.Width = fontWidth;
+	rtDesc.Height = fontHeight;
+	rtDesc.MipLevels = 1;
+	rtDesc.ArraySize = 1;
+	rtDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	rtDesc.SampleDesc.Count = 1;
+	rtDesc.SampleDesc.Quality = 0;
+	rtDesc.Usage = D3D11_USAGE_DYNAMIC;
+	rtDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	rtDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	rtDesc.MiscFlags = 0;
+
+	// フォント用テクスチャ作成
+	ID3D11Texture2D* layerBuffer = 0;
+	ID3D11Device* pDevice = GetDevice();
+	if (FAILED(pDevice->CreateTexture2D(&rtDesc, nullptr, &layerBuffer))) {
+		return E_FAIL;
+	}
+
+	// デバイスコンテキストを取得
 	auto deviceContext = GetDeviceContext();
 
-	// フォント情報をテクスチャに書き込む部分
-	D3D11_MAPPED_SUBRESOURCE hMappedResource;
-	hr = deviceContext->Map(
-		pFontTexture,
+	// フォント用テクスチャリソースにテクスチャ情報をコピー
+	D3D11_MAPPED_SUBRESOURCE mappedSubrsrc;
+	deviceContext->Map(
+		layerBuffer,
 		0,
 		D3D11_MAP_WRITE_DISCARD,
 		0,
-		&hMappedResource);
+		&mappedSubrsrc);
 	// ここで書き込む
-	BYTE* pBits = (BYTE*)hMappedResource.pData;
+	BYTE* pBits = (BYTE*)mappedSubrsrc.pData;
 	// フォント情報の書き込み
 	// iOfs_x, iOfs_y : 書き出し位置(左上)
 	// iBmp_w, iBmp_h : フォントビットマップの幅高
@@ -120,7 +126,7 @@ HRESULT InitFont(void) {
 	int Level = 17;
 	int x, y;
 	DWORD Alpha, Color;
-	memset(pBits, 0, hMappedResource.RowPitch * tm.tmHeight);
+	memset(pBits, 0, mappedSubrsrc.RowPitch * tm.tmHeight);
 	for (y = iOfs_y; y < iOfs_y + iBmp_h; y++)
 	{
 		for (x = iOfs_x; x < iOfs_x + iBmp_w; x++)
@@ -130,25 +136,25 @@ HRESULT InitFont(void) {
 				/ (Level - 1);
 			Color = 0x00ffffff | (Alpha << 24);
 			memcpy(
-				(BYTE*)pBits + hMappedResource.RowPitch * y + 4 * x,
+				(BYTE*)pBits + mappedSubrsrc.RowPitch * y + 4 * x,
 				&Color,
 				sizeof(DWORD));
 		}
 	}
-	deviceContext->Unmap(pFontTexture, 0);
+	deviceContext->Unmap(layerBuffer, 0);
 
 
 	// ShaderResourceViewの情報を作成
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	ZeroMemory(&srvDesc, sizeof(srvDesc));
-	srvDesc.Format = fontTextureDesc.Format;
+	srvDesc.Format = rtDesc.Format;
 	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = fontTextureDesc.MipLevels;
+	srvDesc.Texture2D.MipLevels = rtDesc.MipLevels;
 
 	// ShaderResourceViewの情報を書き込む
 	ID3D11ShaderResourceView* srv;
-	pDevice->CreateShaderResourceView(pFontTexture, &srvDesc, &srv);
+	pDevice->CreateShaderResourceView(layerBuffer, &srvDesc, &srv);
 
 	// 頂点バッファ生成
 	D3D11_BUFFER_DESC bd;
@@ -161,8 +167,6 @@ HRESULT InitFont(void) {
 
 	// いろいろ解放
 	delete[] pMono;
-	SelectObject(hdc, oldFont);
-	ReleaseDC(NULL, hdc);
 
 	g_Load = true;
 	return S_OK;
