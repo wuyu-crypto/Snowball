@@ -7,10 +7,12 @@
 #include "main.h"
 #include "renderer.h"
 #include "font.h"
+#include "sprite.h"
 
 //*****************************************************************************
 // マクロ定義
 //*****************************************************************************
+#define	TEXTURE_MAX	128
 
 //*****************************************************************************
 // プロトタイプ宣言
@@ -21,6 +23,9 @@
 // グローバル変数
 //*****************************************************************************
 static bool g_Load = false;
+
+static ID3D11Buffer* g_VertexBuffer = NULL;
+static ID3D11ShaderResourceView* g_Texture[TEXTURE_MAX] = { NULL };
 
 //=============================================================================
 // 初期化処理
@@ -145,18 +150,14 @@ HRESULT InitFont(void) {
 	ID3D11ShaderResourceView* srv;
 	pDevice->CreateShaderResourceView(pFontTexture, &srvDesc, &srv);
 
-
-
-
-
-
-
-
-
-
-
-
-
+	// 頂点バッファ生成
+	D3D11_BUFFER_DESC bd;
+	ZeroMemory(&bd, sizeof(bd));
+	bd.Usage = D3D11_USAGE_DYNAMIC;
+	bd.ByteWidth = sizeof(VERTEX_3D) * 4;
+	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	GetDevice()->CreateBuffer(&bd, NULL, &g_VertexBuffer);
 
 	// いろいろ解放
 	delete[] pMono;
@@ -170,11 +171,73 @@ HRESULT InitFont(void) {
 //=============================================================================
 // 終了処理
 //=============================================================================
+void UninitFont(void)
+{
+	if (!g_Load) return;
+
+	if (g_VertexBuffer)
+	{
+		g_VertexBuffer->Release();
+		g_VertexBuffer = NULL;
+	}
+
+	for (int i = 0; i < TEXTURE_MAX; i++)
+	{
+		if (g_Texture[i])
+		{
+			g_Texture[i]->Release();
+			g_Texture[i] = NULL;
+		}
+	}
+
+
+	g_Load = false;
+}
 
 //=============================================================================
 // 更新処理
 //=============================================================================
+void UpdateFont(void) {
 
+}
 //=============================================================================
 // 描画処理
 //=============================================================================
+void DrawFont(void)
+{
+	// 頂点バッファ設定
+	UINT stride = sizeof(VERTEX_3D);
+	UINT offset = 0;
+	GetDeviceContext()->IASetVertexBuffers(0, 1, &g_VertexBuffer, &stride, &offset);
+
+	// マトリクス設定
+	SetWorldViewProjection2D();
+
+	// プリミティブトポロジ設定
+	GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+	// マテリアル設定
+	MATERIAL material;
+	ZeroMemory(&material, sizeof(material));
+	material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	SetMaterial(material);
+
+	// テクスチャ設定
+	GetDeviceContext()->PSSetShaderResources(0, 1, &g_Texture[0]);
+
+	float px = 0;
+	float py = 0;
+	float pw = 10;
+	float ph = 10;
+
+	float tw = 1.0f;
+	float th = 1.0f;
+	float tx = 0.0f;
+	float ty = 0.0f;
+
+	// １枚のポリゴンの頂点とテクスチャ座標を設定
+	SetSprite(g_VertexBuffer, px, py, pw, ph, tx, ty, tw, th);
+
+	// ポリゴン描画
+	GetDeviceContext()->Draw(4, 0);
+}

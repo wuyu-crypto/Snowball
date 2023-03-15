@@ -19,6 +19,7 @@
 #include "result.h"
 #include "debugproc.h"
 #include "tutorial.h"
+#include "font.h"
 
 //*****************************************************************************
 // マクロ定義
@@ -255,6 +256,9 @@ HRESULT Init(HINSTANCE hInstance, HWND hWnd, BOOL bWindow)
 	// フェードの初期化
 	InitFade();
 
+	// フォントの初期化
+	InitFont();
+
 	// 最初のモードをセット
 	SetMode(g_Mode);	// ここはSetModeのままで！
 
@@ -270,6 +274,9 @@ void Uninit(void)
 
 	// 終了のモードをセット
 	SetMode(MODE_MAX);
+
+	// フォントの終了処理
+	UninitFont();
 
 	// サウンド終了処理
 	UninitSound();
@@ -316,6 +323,9 @@ void Update(void)
 		UpdateResult();
 		break;
 	}
+
+	// フォント処理の更新
+	UpdateFont();
 
 	// フェード処理の更新
 	UpdateFade();
@@ -374,6 +384,11 @@ void Draw(void)
 
 		break;
 	}
+
+	Set2D(true);
+	// フォントの描画
+	DrawFont();
+	Set2D(false);
 
 	// フェード描画
 	DrawFade();
