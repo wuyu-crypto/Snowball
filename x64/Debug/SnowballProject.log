@@ -1,3 +1,0 @@
-﻿  font.cpp
-C:\Users\User\Desktop\TH_GP12_GP11B132_33_呉優\Snowball\font.cpp(48,2): warning C4302: '型キャスト': 'const char *' から 'WCHAR' へ切り詰めます。
-  SnowballProject.vcxproj -> C:\Users\User\Desktop\TH_GP12_GP11B132_33_呉優\Snowball\x64\Debug\SnowballProject.exe

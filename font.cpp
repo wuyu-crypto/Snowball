@@ -17,7 +17,7 @@
 //*****************************************************************************
 // プロトタイプ宣言
 //*****************************************************************************
-
+void DrawTextMetrics(ID3D11Device* dev, TEXTMETRIC tm, GLYPHMETRICS gm, int ox, int oy);
 
 //*****************************************************************************
 // グローバル変数
@@ -46,8 +46,12 @@ HRESULT InitFont(void) {
 		DEFAULT_PITCH | FF_MODERN,
 		(WCHAR)"ＭＳ Ｐ明朝"
 	};
+
 	// フォントハンドルの生成
 	HFONT hFont = CreateFontIndirectW(&lf);
+	if (hFont == NULL) {
+		return E_FAIL;
+	}
 
 	// 現在のウィンドウに適用
 	// デバイスにフォントを持たせないとGetGlyphOutline関数はエラーとなる
@@ -55,26 +59,45 @@ HRESULT InitFont(void) {
 	HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
 
 	// フォントビットマップ取得
-	const wchar_t* c = L"S";
+	const wchar_t* c = L"a";
 	UINT code = (UINT)*c;
 
 	// 階調を設定
 	const int gradFlag = GGO_GRAY4_BITMAP;
+	int grad = 0;	// 階調の最大値
+	switch (gradFlag) {
+	case GGO_GRAY2_BITMAP: grad = 4;	break;
+	case GGO_GRAY4_BITMAP: grad = 16;	break;
+	case GGO_GRAY8_BITMAP: grad = 64;	break;
+	}
+	if (grad == 0) {
+		return E_FAIL;
+	}
 
 	// ビットマップを設定
 	TEXTMETRIC tm;
 	GetTextMetrics(hdc, &tm);
-	GLYPHMETRICS gm;	// ビットマップデータ
+	GLYPHMETRICS gm;
 	CONST MAT2 mat = { {0,1},{0,0},{0,0},{0,1} };
+	// ビットマップに必要なブロックサイズを調べる
+	DWORD size = GetGlyphOutlineW(
+		hdc, 		// フォントが設定してあるデバイスコンテキストハンドル
+		code,		// 表示したい文字をUnicodeで設定
+		gradFlag,	// 解像度
+		&gm,		// ビットマップ情報格納先
+		0,			// ブロックサイズ
+		NULL,		// ビットマップを保存するブロックメモリ
+		&mat		// 回転（ここは変換なし）
+	);
+	BYTE* pFontBMP = new BYTE[size];
+	// 調べたサイズによりビットマップを再生成
+	GetGlyphOutlineW(hdc, code, gradFlag, &gm, size, pFontBMP, &mat);
 
-	// フォントビットマップを取得
-	DWORD size = GetGlyphOutlineW(hdc, code, gradFlag, &gm, 0, NULL, &mat);
-	BYTE* pMono = new BYTE[size];
-	GetGlyphOutlineW(hdc, code, gradFlag, &gm, size, pMono, &mat);
-
-	// ハンドルとコンテキスト解放
+	// コンテキルトとハンドルはもう要らないから解放
 	SelectObject(hdc, oldFont);
 	ReleaseDC(NULL, hdc);
+
+
 
 	// フォントの幅と高さ
 	INT fontWidth = (gm.gmBlackBoxX + 3) / 4 * 4;
@@ -96,9 +119,9 @@ HRESULT InitFont(void) {
 	rtDesc.MiscFlags = 0;
 
 	// フォント用テクスチャ作成
-	ID3D11Texture2D* layerBuffer = 0;
+	ID3D11Texture2D* pTex = 0;
 	ID3D11Device* pDevice = GetDevice();
-	if (FAILED(pDevice->CreateTexture2D(&rtDesc, nullptr, &layerBuffer))) {
+	if (FAILED(pDevice->CreateTexture2D(&rtDesc, nullptr, &pTex))) {
 		return E_FAIL;
 	}
 
@@ -107,12 +130,7 @@ HRESULT InitFont(void) {
 
 	// フォント用テクスチャリソースにテクスチャ情報をコピー
 	D3D11_MAPPED_SUBRESOURCE mappedSubrsrc;
-	deviceContext->Map(
-		layerBuffer,
-		0,
-		D3D11_MAP_WRITE_DISCARD,
-		0,
-		&mappedSubrsrc);
+	deviceContext->Map(pTex, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedSubrsrc);
 	// ここで書き込む
 	BYTE* pBits = (BYTE*)mappedSubrsrc.pData;
 	// フォント情報の書き込み
@@ -124,15 +142,14 @@ HRESULT InitFont(void) {
 	int iBmp_w = gm.gmBlackBoxX + (4 - (gm.gmBlackBoxX % 4)) % 4;
 	int iBmp_h = gm.gmBlackBoxY;
 	int Level = 17;
-	int x, y;
 	DWORD Alpha, Color;
 	memset(pBits, 0, mappedSubrsrc.RowPitch * tm.tmHeight);
-	for (y = iOfs_y; y < iOfs_y + iBmp_h; y++)
+	for (int y = iOfs_y; y < iOfs_y + iBmp_h; y++)
 	{
-		for (x = iOfs_x; x < iOfs_x + iBmp_w; x++)
+		for (int x = iOfs_x; x < iOfs_x + iBmp_w; x++)
 		{
 			Alpha =
-				(255 * pMono[x - iOfs_x + iBmp_w * (y - iOfs_y)])
+				(255 * pFontBMP[x - iOfs_x + iBmp_w * (y - iOfs_y)])
 				/ (Level - 1);
 			Color = 0x00ffffff | (Alpha << 24);
 			memcpy(
@@ -141,7 +158,7 @@ HRESULT InitFont(void) {
 				sizeof(DWORD));
 		}
 	}
-	deviceContext->Unmap(layerBuffer, 0);
+	deviceContext->Unmap(pTex, 0);
 
 
 	// ShaderResourceViewの情報を作成
@@ -154,7 +171,7 @@ HRESULT InitFont(void) {
 
 	// ShaderResourceViewの情報を書き込む
 	ID3D11ShaderResourceView* srv;
-	pDevice->CreateShaderResourceView(layerBuffer, &srvDesc, &srv);
+	pDevice->CreateShaderResourceView(pTex, &srvDesc, &srv);
 
 	g_Texture[0] = srv;
 
@@ -168,7 +185,7 @@ HRESULT InitFont(void) {
 	GetDevice()->CreateBuffer(&bd, NULL, &g_VertexBuffer);
 
 	// いろいろ解放
-	delete[] pMono;
+	delete[] pFontBMP;
 
 	g_Load = true;
 	return S_OK;
@@ -247,3 +264,32 @@ void DrawFont(void)
 	// ポリゴン描画
 	GetDeviceContext()->Draw(4, 0);
 }
+
+//=============================================================================
+// アライン描画
+//=============================================================================
+//void DrawTextMetrics(ID3D11Device* dev, TEXTMETRIC tm, GLYPHMETRICS gm, int ox, int oy) {
+//	XMMATRIX idn = XMMatrixIdentity();
+//	dev->SetTransform(D3DTS_WORLD, &idn);
+//	dev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+//
+//	// Base Line
+//	D3DVIEWPORT9 vp;
+//	dev->GetViewport(&vp);
+//	drawLineW(dev, (float)vp.Width / -2.0f, (float)oy, 0.0f, (float)vp.Width / 2, (float)oy, 0.0f, 0xffff0000);
+//
+//	// Ascent Line
+//	drawLineW(dev, (float)vp.Width / -2.0f, (float)(oy + tm.tmAscent), 0.0f, (float)vp.Width / 2, (float)(oy + tm.tmAscent), 0.0f, 0xffff0000);
+//
+//	// Descent Line
+//	drawLineW(dev, (float)vp.Width / -2.0f, (float)(oy - tm.tmDescent), 0.0f, (float)vp.Width / 2, (float)(oy - tm.tmDescent), 0.0f, 0xffff0000);
+//
+//	// Origin
+//	drawRectW(dev, (float)ox - 2.0f, (float)oy + 2.0f, 4.0f, 4.0f, 0xff00ff00);
+//
+//	// Next Origin
+//	drawRectW(dev, (float)(ox + gm.gmCellIncX) - 2.0f, (float)oy + 2.0f, 4.0f, 4.0f, 0xffffff00);
+//
+//	// BlackBox
+//	drawRectW(dev, (float)(ox + gm.gmptGlyphOrigin.x), (float)(oy + gm.gmptGlyphOrigin.y), (float)gm.gmBlackBoxX, (float)gm.gmBlackBoxY, 0x00ff0000ff);
+//};
