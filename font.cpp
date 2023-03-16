@@ -156,6 +156,8 @@ HRESULT InitFont(void) {
 	ID3D11ShaderResourceView* srv;
 	pDevice->CreateShaderResourceView(layerBuffer, &srvDesc, &srv);
 
+	g_Texture[0] = srv;
+
 	// 頂点バッファ生成
 	D3D11_BUFFER_DESC bd;
 	ZeroMemory(&bd, sizeof(bd));
@@ -229,10 +231,10 @@ void DrawFont(void)
 	// テクスチャ設定
 	GetDeviceContext()->PSSetShaderResources(0, 1, &g_Texture[0]);
 
-	float px = 0;
-	float py = 0;
-	float pw = 10;
-	float ph = 10;
+	float px = 100;
+	float py = 100;
+	float pw = 100;
+	float ph = 100;
 
 	float tw = 1.0f;
 	float th = 1.0f;
