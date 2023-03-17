@@ -19,7 +19,7 @@
 #include "result.h"
 #include "debugproc.h"
 #include "tutorial.h"
-#include "font.h"
+#include "text.h"
 
 //*****************************************************************************
 // マクロ定義
@@ -256,9 +256,6 @@ HRESULT Init(HINSTANCE hInstance, HWND hWnd, BOOL bWindow)
 	// フェードの初期化
 	InitFade();
 
-	// フォントの初期化
-	InitFont();
-
 	// 最初のモードをセット
 	SetMode(g_Mode);	// ここはSetModeのままで！
 
@@ -276,7 +273,7 @@ void Uninit(void)
 	SetMode(MODE_MAX);
 
 	// フォントの終了処理
-	UninitFont();
+	UninitText();
 
 	// サウンド終了処理
 	UninitSound();
@@ -325,7 +322,7 @@ void Update(void)
 	}
 
 	// フォント処理の更新
-	UpdateFont();
+	UpdateText();
 
 	// フェード処理の更新
 	UpdateFade();
@@ -387,7 +384,7 @@ void Draw(void)
 
 	Set2D(true);
 	// フォントの描画
-	DrawFont();
+	DrawText();
 	Set2D(false);
 
 	// フェード描画
@@ -442,6 +439,8 @@ void SetMode(int mode)
 	// リザルト画面の終了処理
 	UninitResult();
 
+	UninitText();
+
 
 	g_Mode = mode;	// 次のモードをセットしている
 
@@ -471,15 +470,12 @@ void SetMode(int mode)
 		PlaySound(SOUND_LABEL_BGM_RESULT);
 		break;
 
-		// ゲーム終了時の処理
 	case MODE_MAX:
-		// エネミーの終了処理
-		UninitEnemy();
-		
-		// プレイヤーの終了処理
-		UninitPlayer();
-		break;
+		// ゲームの終了時処理
+		return;
 	}
+
+	InitText();	// テキストの初期化は最後に
 }
 
 //=============================================================================
