@@ -20,6 +20,7 @@
 #include <DirectXMath.h>
 
 #include <vector>
+#include <tchar.h>
 
 
 // –{—ˆ‚Íƒwƒbƒ_‚É‘‚©‚È‚¢•û‚ª—Ç‚¢

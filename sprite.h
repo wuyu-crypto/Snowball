@@ -26,3 +26,10 @@ void SetSpriteColorRotation(ID3D11Buffer *buf, float X, float Y, float Width, fl
 
 void SetSpriteLeftTop(ID3D11Buffer *buf, float X, float Y, float Width, float Height, float U, float V, float UW, float VH);
 
+/*
+* @brief w’èÀ•W‚ğ¶ã‚Æ‚µ‚Ä•`‰æ
+*/
+void SetSpriteLTColor(ID3D11Buffer* buf,
+	float X, float Y, float Width, float Height,
+	float U, float V, float UW, float VH,
+	XMFLOAT4 color);
