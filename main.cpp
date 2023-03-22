@@ -19,7 +19,7 @@
 #include "result.h"
 #include "debugproc.h"
 #include "tutorial.h"
-#include "textbox.h"
+#include "textBox.h"
 
 //*****************************************************************************
 // マクロ定義
@@ -273,7 +273,7 @@ void Uninit(void)
 	SetMode(MODE_MAX);
 
 	// フォントの終了処理
-	UninitTextbox();
+	UninitTextBox();
 
 	// サウンド終了処理
 	UninitSound();
@@ -322,7 +322,7 @@ void Update(void)
 	}
 
 	// フォント処理の更新
-	UpdateTextbox();
+	UpdateTextBox();
 
 	// フェード処理の更新
 	UpdateFade();
@@ -384,7 +384,7 @@ void Draw(void)
 
 	Set2D(true);
 	// テキストの描画
-	DrawTextbox();
+	DrawTextBox();
 	Set2D(false);
 
 	// フェード描画
@@ -439,7 +439,7 @@ void SetMode(int mode)
 	// リザルト画面の終了処理
 	UninitResult();
 
-	UninitTextbox();
+	UninitTextBox();
 
 
 	g_Mode = mode;	// 次のモードをセットしている
@@ -475,7 +475,7 @@ void SetMode(int mode)
 		return;
 	}
 
-	InitTextbox();	// テキストの初期化は最後に
+	InitTextBox();	// テキストの初期化は最後に
 }
 
 //=============================================================================
