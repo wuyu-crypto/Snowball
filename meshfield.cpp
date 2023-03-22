@@ -19,6 +19,9 @@
 
 #define	REAL_FIELD_SIZE	0.97f			// 実フィールドサイズ（はみ出し防止）
 
+#define	OFFSET_Y		2.0f			// 雪の陥落Y値
+#define	TIME_TO_RETURN	12				// 戻るフレーム値
+
 //*****************************************************************************
 // グローバル変数
 //*****************************************************************************
@@ -68,6 +71,7 @@ HRESULT InitMeshField(XMFLOAT3 pos, XMFLOAT3 rot,
 
 	// ポリゴン表示位置の中心座標を設定
 	g_posField = pos;
+	g_posField.y += OFFSET_Y;	// 雪を加える
 
 	g_rotField = rot;
 
@@ -264,30 +268,7 @@ void UninitMeshField(void)
 //=============================================================================
 void UpdateMeshField(void)
 {
-	// 波の処理
-	float dt = 0.03f;
-
-	for (int z = 0; z < g_nNumBlockZField; z++)
-	{
-		for (int x = 0; x < g_nNumBlockXField; x++)
-		{
-			float dx = g_Vertex[z * (g_nNumBlockXField + 1) + x].Position.x - g_Center.x;
-			float dz = g_Vertex[z * (g_nNumBlockXField + 1) + x].Position.z - g_Center.z;
-
-			// 波紋の中心点からの距離を得る
-			float len = (float)sqrt(dx * dx + dz * dz);
-
-			// 波の高さを、sin関数で得る
-			//  　波の高さ　= sin( -経過時間 * 周波数 + 距離 * 距離補正 ) * 振幅
-			g_Vertex[z * (g_nNumBlockXField + 1) + x].Position.y = sinf(-g_Time * g_wave_frequency + len * g_wave_correction) * g_wave_amplitude;
-		//	g_Vertex[z * (g_nNumBlockXField + 1) + x].Position.y = 0.0f;
-		}
-
-	}
-
-	if (g_IsWaveActive) {
-		g_Time += dt;
-	}
+	// 凹凸処理
 
 
 	// 頂点バッファに値をセットする
@@ -368,7 +349,7 @@ bool RayHitField(XMFLOAT3 pos, XMFLOAT3 *HitPosition, XMFLOAT3 *Normal)
 		end.z -= 1.0f;
 	}
 
-	// 少し上から、ズドーンと下へレイを飛ばす
+	// 少し上から下へレイを飛ばす
 	start.y += 100.0f;
 	end.y -= 1000.0f;
 

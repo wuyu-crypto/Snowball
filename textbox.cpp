@@ -8,6 +8,8 @@
 #include "textBox.h"
 #include "sprite.h"
 
+using namespace std;
+
 //*****************************************************************************
 // マクロ定義
 //*****************************************************************************
@@ -26,15 +28,17 @@
 //*****************************************************************************
 struct TEXT_BOX {
 
-	bool		isInitiated;	// 初期化済みか
+	bool								isInitiated;		// 初期化済みか
 
-	bool		use;	// 有効化フラグ
-	wchar_t		text;	// 文字
-	XMFLOAT3	pos;	// 1文字目の左上座標
-	XMFLOAT4	color;	// 色
+	XMFLOAT3							absPos;				// 文字列の左上絶対座標
 
-	ID3D11Buffer*				vertexBuffer;		// 頂点バッファ
-	ID3D11ShaderResourceView*	texture;			// テクスチャデータ
+	vector<bool>						use;				// 有効化フラグ
+	vector<XMFLOAT3>					pos;				// 各文字の相対座標(前項に対して、[0]は(0,0,0))
+	float								scl;				// 拡大率
+	XMFLOAT4							color;				// 色
+
+	vector<ID3D11Buffer*>				vertexBuffer;		// 頂点バッファ
+	vector<ID3D11ShaderResourceView*>	texture;			// テクスチャデータ
 };
 
 //*****************************************************************************
@@ -53,7 +57,7 @@ static TEXT_BOX g_TextBox[TEXT_BOX_MAX];
 //=============================================================================
 HRESULT InitTextBox(void) {
 
-	SetTextBox(L"天空", "装甲明朝", 0, 0, XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), true);
+	SetTextBox(L"天", "装甲明朝", 0, 0, XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), true);
 
 #ifndef VECTOR
 
@@ -231,20 +235,25 @@ void UninitTextBox(void)
 {
 	if (!g_Load) return;
 
-	for (auto text : g_TextBox) {
+	for (int i = 0; i < TEXT_BOX_MAX; i++) {
 
-		if (text.vertexBuffer) {
-			text.vertexBuffer->Release();
-			text.vertexBuffer = NULL;
-		}
+		for (int j = 0; j < g_TextBox[i].use.size(); j++) {
 
-		if (text.texture) {
-			text.texture->Release();
-			text.texture = NULL;
+			g_TextBox[i].use[j] = false;
+
+			if (g_TextBox[i].vertexBuffer[j]) {
+				g_TextBox[i].vertexBuffer[j]->Release();
+				g_TextBox[i].vertexBuffer[j] = NULL;
+			}
+
+			if (g_TextBox[i].texture[j]) {
+				g_TextBox[i].texture[j]->Release();
+				g_TextBox[i].texture[j] = NULL;
+			}
 		}
 
 		// 未初期化フラグをfalseに
-		text.isInitiated = false;
+		g_TextBox[i].isInitiated = false;
 	}
 
 	g_Load = false;
@@ -263,57 +272,65 @@ void UpdateTextBox(void) {
 void DrawTextBox(void)
 {
 	for (auto textBox : g_TextBox) {
+		if (!textBox.isInitiated)	continue;
 
-		if (!textBox.use)	continue;
+		float px = textBox.absPos.x;
+		float py = textBox.absPos.y;
 
-		// 頂点バッファ設定
-		UINT stride = sizeof(VERTEX_3D);
-		UINT offset = 0;
-		GetDeviceContext()->IASetVertexBuffers(0, 1, &textBox.vertexBuffer, &stride, &offset);
+		// 1文字ずつ描画
+		for (int i = 0; i < textBox.use.size(); i++) {
+			if (!textBox.use[i])	continue;
 
-		// マトリクス設定
-		SetWorldViewProjection2D();
+			// 頂点バッファ設定
+			UINT stride = sizeof(VERTEX_3D);
+			UINT offset = 0;
+			GetDeviceContext()->IASetVertexBuffers(0, 1, &textBox.vertexBuffer[i], &stride, &offset);
 
-		// プリミティブトポロジ設定
-		GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+			// マトリクス設定
+			SetWorldViewProjection2D();
 
-		// マテリアル設定
-		MATERIAL material;
-		ZeroMemory(&material, sizeof(material));
-		material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-		SetMaterial(material);
+			// プリミティブトポロジ設定
+			GetDeviceContext()->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
-		// テクスチャ設定
-		GetDeviceContext()->PSSetShaderResources(0, 1, &textBox.texture);
+			// マテリアル設定
+			MATERIAL material;
+			ZeroMemory(&material, sizeof(material));
+			material.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+			SetMaterial(material);
 
-		float px = 0;
-		float py = 0;
-		float pw = 100;
-		float ph = 100;
+			// テクスチャ設定
+			GetDeviceContext()->PSSetShaderResources(0, 1, &textBox.texture[i]);
 
-		float tw = 1.0f;
-		float th = 1.0f;
-		float tx = 0.0f;
-		float ty = 0.0f;
+			float pw = textBox.scl;
+			float ph = textBox.scl;
 
-		// １枚のポリゴンの頂点とテクスチャ座標を設定
-		// 文字の色もここで設定
-		SetSpriteLTColor(textBox.vertexBuffer, px, py, pw, ph, tx, ty, tw, th,
-			XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f));
+			float tw = 1.0f;
+			float th = 1.0f;
+			float tx = 0.0f;
+			float ty = 0.0f;
 
-		// ポリゴン描画
-		GetDeviceContext()->Draw(4, 0);
+			// １枚のポリゴンの頂点とテクスチャ座標を設定
+			// 文字の色もここで設定
+			SetSpriteLTColor(textBox.vertexBuffer[i], px, py, pw, ph, tx, ty, tw, th,
+				XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f));
 
+			// ポリゴン描画
+			GetDeviceContext()->Draw(4, 0);
+
+			// 次のテクスチャの座標を決める
+			px += textBox.pos[i].x;
+		}
 	}
 }
 
 
 
-bool SetTextBox(wchar_t* inputText, TCHAR* font, int size, int weight, XMFLOAT4 color, XMFLOAT3 pos, bool mode) {
+bool SetTextBox(wchar_t* code, TCHAR* font, int size, int weight, XMFLOAT4 color, XMFLOAT3 pos, bool mode) {
 
 	// 空のテキスト構造体スロットを探す
-	for (auto textBox : g_TextBox) {
-		if (textBox.isInitiated)	continue;
+	for (int i = 0; i < TEXT_BOX_MAX; i++) {
+
+		if (g_TextBox[i].isInitiated)	continue;
 
 		// フォントハンドルの設定
 		int fontSize, fontWeight;
@@ -365,17 +382,11 @@ bool SetTextBox(wchar_t* inputText, TCHAR* font, int size, int weight, XMFLOAT4 
 
 
 		// 文字列の長さを調べる
-		int len = wcslen(inputText);
+		int len = wcslen(code);
 
 		// 256文字目以降は切り落とされる
 		if (len > CHAR_MAX) {
 			len = CHAR_MAX;
-		}
-
-		// Unicode文字を取得
-		UINT* code = new UINT[len];			// Unicode文字列
-		for (int i = 0; i < len; i++) {
-			code[i] = (UINT)(inputText + i);		// 1文字ごと取得
 		}
 
 		// 階調を設定
@@ -394,12 +405,13 @@ bool SetTextBox(wchar_t* inputText, TCHAR* font, int size, int weight, XMFLOAT4 
 
 
 
-
-
 		// 文字情報を1文字ごとに取得
-		TEXTMETRIC tm[CHAR_MAX];
-		GLYPHMETRICS gm[CHAR_MAX];
-		std::vector<BYTE*> pFontBMP;
+		// メモリが足りないのでヒープを使う
+		TEXTMETRIC* tm = (TEXTMETRIC*)malloc(sizeof(TEXTMETRIC) * len);
+		GLYPHMETRICS* gm = (GLYPHMETRICS*)malloc(sizeof(GLYPHMETRICS) * len);
+		//TEXTMETRIC tm[CHAR_MAX];
+		//GLYPHMETRICS gm[CHAR_MAX];
+		BYTE* pFontBMP = new BYTE[size];
 		for (int nText = 0; nText < len; nText++) {
 
 			// ビットマップを設定
@@ -407,13 +419,13 @@ bool SetTextBox(wchar_t* inputText, TCHAR* font, int size, int weight, XMFLOAT4 
 			CONST MAT2 mat = { {0,1},{0,0},{0,0},{0,1} };
 			// ビットマップに必要なブロックサイズを調べる
 			DWORD size = GetGlyphOutlineW(
-				hdc, 			// フォントが設定してあるデバイスコンテキストハンドル
-				code[nText],	// 表示したい文字をUnicodeで設定
-				gradFlag,		// 解像度
-				&gm[nText],		// ビットマップ情報格納先
-				0,				// ブロックサイズ
-				NULL,			// ビットマップを保存するブロックメモリ
-				&mat			// 回転（ここは変換なし）
+				hdc, 				// フォントが設定してあるデバイスコンテキストハンドル
+				code[nText],		// 表示したい文字をUnicodeで設定
+				gradFlag,			// 解像度
+				&gm[nText],			// ビットマップ情報格納先
+				0,					// ブロックサイズ
+				NULL,				// ビットマップを保存するブロックメモリ
+				&mat				// 回転（ここは変換なし）
 			);
 			pFontBMP.push_back(new BYTE[size]);
 			// 調べたサイズによりビットマップを再生成
@@ -424,8 +436,6 @@ bool SetTextBox(wchar_t* inputText, TCHAR* font, int size, int weight, XMFLOAT4 
 		SelectObject(hdc, oldFont);
 		ReleaseDC(NULL, hdc);
 
-		// 文字コード要らないから解放
-		delete[] code;
 
 
 
@@ -513,6 +523,10 @@ bool SetTextBox(wchar_t* inputText, TCHAR* font, int size, int weight, XMFLOAT4 
 
 		deviceContext->Unmap(pTex, 0);
 
+		// ビットマップはもう要らないので解放
+		free(tm);
+		free(gm);
+
 		// ShaderResourceView、頂点バッファ生成
 		for (int nText = 0; nText < len; nText++) {
 
@@ -526,7 +540,7 @@ bool SetTextBox(wchar_t* inputText, TCHAR* font, int size, int weight, XMFLOAT4 
 
 			// ShaderResourceViewの情報をテキスト構造体に書き込む
 			pDevice->CreateShaderResourceView(pTex, &srvDesc,
-				&textBox.texture	// SRV格納先
+				&g_TextBox[i].texture	// SRV格納先
 			);
 
 			// 頂点バッファ生成
@@ -537,8 +551,15 @@ bool SetTextBox(wchar_t* inputText, TCHAR* font, int size, int weight, XMFLOAT4 
 			bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 			bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 			GetDevice()->CreateBuffer(&bd, NULL, 
-				&textBox.vertexBuffer	// 頂点バッファ格納先
+				&g_TextBox[i].vertexBuffer	// 頂点バッファ格納先
 			);
+
+
+
+			g_TextBox[i].pos = pos;
+			g_TextBox[i].color = color;
+			g_TextBox[i].use = mode;
+			g_TextBox[i].isInitiated = true;
 
 			// 一個セットできたら終了
 			return true;

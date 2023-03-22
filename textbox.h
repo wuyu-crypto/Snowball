@@ -31,7 +31,7 @@ void DrawTextBox(void);
 /*
 * @brief テキストボックスをセット
 * 受け取った文を元に合成した1枚のテキスト画像を生成。文は256文字まで。
-* @param [in] inputText		Unicode文字列
+* @param [in] code			Unicode文字列
 * @param [in] font			フォント名
 * @param [in] size			フォントサイズ。0=デフォルト
 * @param [in] weight		フォントウェイト。0=デフォルト
@@ -41,4 +41,4 @@ void DrawTextBox(void);
 * @retval true	正常終了
 * @retval false 異常終了
 */
-bool SetTextBox(wchar_t* inputText, TCHAR* font, int size, int weight, XMFLOAT4 color, XMFLOAT3 pos, bool mode);
+bool SetTextBox(wchar_t* code, TCHAR* font, int size, int weight, XMFLOAT4 color, XMFLOAT3 pos, bool mode);

@@ -9,6 +9,15 @@
 //*****************************************************************************
 // プロトタイプ宣言
 //*****************************************************************************
+/*
+* @brief メッシュフィールド生成
+* @param [in] pos 中心座標
+* @param [in] rot 回転
+* @param [in] nNumBlockX ブロック数
+* @param [in] nNumBlockZ ブロック数
+* @param [in] nBlockSizeX ブロックサイズ
+* @param [in] nBlockSizeZ ブロックサイズ
+*/
 HRESULT InitMeshField(XMFLOAT3 pos, XMFLOAT3 rot,
 							int nNumBlockX, int nNumBlockZ, float nBlockSizeX, float nBlockSizeZ);
 void UninitMeshField(void);

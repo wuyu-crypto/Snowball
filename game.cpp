@@ -60,7 +60,11 @@ HRESULT InitGame(void)
 
 	// フィールドの初期化
 	// 1300*1300
-	InitMeshField(XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), 100, 100, 13.0f, 13.0f);
+	InitMeshField(
+		XMFLOAT3(0.0f, 0.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f), 
+		100, 100, 
+		13.0f, 13.0f
+	);
 
 	// ライトを有効化	// 影の初期化処理
 	InitShadow();
