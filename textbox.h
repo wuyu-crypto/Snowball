@@ -30,6 +30,7 @@ void DrawTextbox(void);
 
 /*
 * @brief テキストをセット
+* 受け取った文を元に合成した1枚のテキスト画像を生成。文は256文字まで。
 * @param [in] text		Unicode文字列
 * @param [in] font		フォント名
 * @param [in] size		フォントサイズ。0=デフォルト

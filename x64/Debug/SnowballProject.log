@@ -1,7 +1,0 @@
-﻿  textbox.cpp
-C:\Users\User\Desktop\TH_GP12_GP11B132_33_呉優\Snowball\textbox.cpp(350,30): warning C4267: '初期化中': 'size_t' から 'int' に変換しました。データが失われているかもしれません。
-C:\Users\User\Desktop\TH_GP12_GP11B132_33_呉優\Snowball\textbox.cpp(350,30): warning C4267: '初期化中': 'size_t' から 'const int' に変換しました。データが失われているかもしれません。
-C:\Users\User\Desktop\TH_GP12_GP11B132_33_呉優\Snowball\textbox.cpp(355,29): warning C4311: '型キャスト': ポインターを 'wchar_t *' から 'UINT' へ切り詰めます。
-C:\Users\User\Desktop\TH_GP12_GP11B132_33_呉優\Snowball\textbox.cpp(355,29): warning C4302: '型キャスト': 'wchar_t *' から 'UINT' へ切り詰めます。
-C:\Users\User\Desktop\TH_GP12_GP11B132_33_呉優\Snowball\textbox.cpp(383): warning C4715: 'SetTextbox': 値を返さないコントロール パスがあります。
-  SnowballProject.vcxproj -> C:\Users\User\Desktop\TH_GP12_GP11B132_33_呉優\Snowball\x64\Debug\SnowballProject.exe
