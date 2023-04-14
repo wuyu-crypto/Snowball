@@ -191,6 +191,7 @@ void AddScore(int add) {
 	g_Score += add;
 
 	if (g_Score > SCORE_MAX)	g_Score = SCORE_MAX;
+	if (g_Score < 0)	g_Score = 0;
 }
 
 
